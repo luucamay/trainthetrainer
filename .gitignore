@@ -1,0 +1,50 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment & secrets
+.env
+.env.*.local
+.env.local
+*.secret
+*.mnemonic
+*.key
+*.pem
+*.p12
+*.keystore
+secrets.json
+
+# React / frontend build artifacts
+build/
+dist/
+public/build/
+.cache/
+.cache-loader/
+coverage/
+.next/
+out/
+
+# Hardhat / Ethereum build artifacts
+artifacts/
+cache/
+typechain/
+deployments/
+openzeppelin/
+coverage/                # solidity-coverage output
+reports/
+
+# Misc logs & runtime files
+logs/
+*.log
+*.tmp
+
+# IDEs / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local machine specific
+*.local
