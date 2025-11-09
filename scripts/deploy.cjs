@@ -1,12 +1,10 @@
 import hre from "hardhat";
-import { ethers } from "ethers";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 async function main() {
   console.log("🚀 Starting deployment to Sepolia...");
-  
-  // Get signer from hardhat
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("📍 Deploying from account:", deployer.address);
   
   // Sepolia testnet addresses
   const usdcAddress = "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8"; // Sepolia USDC
@@ -19,7 +17,7 @@ async function main() {
   console.log("  Education Fund:", educationFundAddress);
 
   // Get the contract factory
-  const EducationVault = await hre.ethers.getContractFactory("EducationVault", deployer);
+  const EducationVault = await hre.ethers.getContractFactory("EducationVault");
   
   console.log("📦 Deploying contract...");
   
