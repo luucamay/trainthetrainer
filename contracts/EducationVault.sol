@@ -6,13 +6,40 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
+ * @title IAavePool
+ * @dev Interface for Aave V3 Pool
+ */
+interface IAavePool {
+    function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
+    function withdraw(address asset, uint256 amount, address to) external returns (uint256);
+    function getUserAccountData(address user) external view returns (
+        uint256 totalCollateralBase,
+        uint256 totalDebtBase,
+        uint256 availableBorrowsBase,
+        uint256 currentLiquidationThreshold,
+        uint256 ltv,
+        uint256 healthFactor
+    );
+}
+
+/**
+ * @title IAToken
+ * @dev Interface for Aave aTokens (interest bearing tokens)
+ */
+interface IAToken {
+    function balanceOf(address user) external view returns (uint256);
+    function scaledBalanceOf(address user) external view returns (uint256);
+}
+
+/**
  * @title EducationVault
  * @dev A vault that accepts USDC deposits, puts them into Aave for yield,
  * and sends all yield to an education fund address for manual distribution
  */
 contract EducationVault is Ownable, ReentrancyGuard {
     IERC20 public immutable usdc;
-    address public immutable aavePool;
+    IAavePool public immutable aavePool;
+    IAToken public immutable aUSDC; // Aave interest bearing USDC token
     address public educationFund;
     
     uint256 public totalDeposited;
@@ -28,10 +55,12 @@ contract EducationVault is Ownable, ReentrancyGuard {
     constructor(
         address _usdc,
         address _aavePool,
+        address _aUSDC,
         address _educationFund
     ) Ownable(msg.sender) {
         usdc = IERC20(_usdc);
-        aavePool = _aavePool;
+        aavePool = IAavePool(_aavePool);
+        aUSDC = IAToken(_aUSDC);
         educationFund = _educationFund;
     }
     

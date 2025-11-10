@@ -31,14 +31,6 @@ export default function EducationVault() {
 		args: address ? [address] : undefined,
 	}) as { data: bigint | undefined };
 
-	// Read USDC allowance
-	const { data: usdcAllowance } = useReadContract({
-		address: addresses.USDC,
-		abi: USDC_ABI,
-		functionName: 'allowance',
-		args: address ? [address, addresses.EDUCATION_VAULT] : undefined,
-	}) as { data: bigint | undefined };
-
 	// Read vault stats
 	const { data: totalDeposited } = useReadContract({
 		address: addresses.EDUCATION_VAULT,
@@ -66,15 +58,21 @@ export default function EducationVault() {
 
 		try {
 			const amount = parseUnits(depositAmount, 6); // USDC has 6 decimals
+			// Approve a bit more than needed to account for any rounding
+			const approvalAmount = amount + BigInt(1000000); // Add 1 USDC buffer
 			
 			writeContract({
 				address: addresses.USDC,
 				abi: USDC_ABI,
 				functionName: 'approve',
-				args: [addresses.EDUCATION_VAULT, amount],
+				args: [addresses.EDUCATION_VAULT, approvalAmount],
+				gas: 100000n, // Set reasonable gas limit for approval
+				gasPrice: undefined, // Let wallet estimate
 			}, {
-				onSuccess: () => {
+				onSuccess: (txHash) => {
+					console.log('✅ Approval transaction hash:', txHash);
 					toast.success('✅ USDC approval successful!');
+					toast.info('🔄 You can now deposit USDC');
 				},
 				onError: (error) => {
 					console.error('Approval error:', error);
@@ -97,6 +95,17 @@ export default function EducationVault() {
 		}
 	};
 
+	// Add allowance check
+	const { data: currentAllowance } = useReadContract({
+		address: addresses.USDC,
+		abi: USDC_ABI,
+		functionName: 'allowance',
+		args: [address, addresses.EDUCATION_VAULT],
+		query: {
+			enabled: !!address,
+		}
+	});
+
 	const handleDeposit = async () => {
 		if (!depositAmount) {
 			toast.error('Please enter a deposit amount');
@@ -106,13 +115,25 @@ export default function EducationVault() {
 		try {
 			const amount = parseUnits(depositAmount, 6); // USDC has 6 decimals
 			
+			// Check allowance first
+			console.log('🔍 Current allowance:', currentAllowance?.toString());
+			console.log('🔍 Required amount:', amount.toString());
+			
+			if (!currentAllowance || (currentAllowance as bigint) < amount) {
+				toast.error('❌ Insufficient USDC allowance. Please approve USDC first!');
+				return;
+			}
+			
 			writeContract({
 				address: addresses.EDUCATION_VAULT,
 				abi: EDUCATION_VAULT_ABI,
 				functionName: 'deposit',
 				args: [amount],
+				gas: 200000n, // Set reasonable gas limit
+				gasPrice: undefined, // Let wallet estimate
 			}, {
-				onSuccess: () => {
+				onSuccess: (txHash) => {
+					console.log('✅ Deposit transaction hash:', txHash);
 					toast.success('✅ Deposit successful! USDC added to vault');
 					setDepositAmount(''); // Clear the input after successful deposit
 				},
@@ -122,6 +143,12 @@ export default function EducationVault() {
 						toast.error('❌ Transaction rejected by user');
 					} else if (error.message.includes('insufficient funds')) {
 						toast.error('❌ Insufficient USDC or ETH for gas');
+					} else if (error.message.includes('ERC20: insufficient allowance') || error.message.includes('allowance')) {
+						toast.error('❌ Please approve USDC spending first');
+					} else if (error.message.includes('Amount must be greater than 0')) {
+						toast.error('❌ Amount must be greater than 0');
+					} else if (error.message.includes('Insufficient USDC balance')) {
+						toast.error('❌ You don\'t have enough USDC');
 					} else if (addresses.EDUCATION_VAULT === '0x1234567890123456789012345678901234567890') {
 						toast.error('❌ Contract not deployed yet - this is just UI testing!');
 					} else {
@@ -138,9 +165,10 @@ export default function EducationVault() {
 	};
 
 	const needsApproval = () => {
-		if (!depositAmount || !usdcAllowance) return false;
+		if (!depositAmount) return true; // Always show approve button when there's no approval
+		if (!currentAllowance) return true; // No allowance means need approval
 		const amount = parseUnits(depositAmount, 6);
-		return (usdcAllowance as bigint) < amount;
+		return (currentAllowance as bigint) < amount;
 	};
 
 	if (!isConnected) {
@@ -237,6 +265,12 @@ export default function EducationVault() {
 								<span>Balance:</span>
 								<span>
 									{usdcBalance ? formatUnits(usdcBalance as bigint, 6) : '0'} USDC
+								</span>
+							</div>
+							<div className="flex justify-between text-sm text-muted-foreground">
+								<span>Approved:</span>
+								<span>
+									{currentAllowance ? formatUnits(currentAllowance as bigint, 6) : '0'} USDC
 								</span>
 							</div>
 						</div>
